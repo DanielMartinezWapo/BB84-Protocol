@@ -1,0 +1,343 @@
+import numpy as np
+import matplotlib as mpl
+import matplotlib.pyplot as plt
+from random import getrandbits
+import qiskit as q
+a=input('Elija la cantidad de estados a medir: ')
+b=int(a)
+HO=input('Elija desde que estado quiere realizar el protocolo: ')
+HOT=int(HO)
+Pro=input('Ingrese la cantidad de protocolos a ejecutar: ')
+IntPro=int(Pro)
+Intrusos=input('Ingrese la cantidad de intrusos que interfieren en la comunicación: ')
+IntIntru=int(Intrusos)
+Prob1=[]
+Matriz=[]
+for k in range (HOT,b):
+   
+    for i in range(IntIntru):
+        a=i+1
+        Vec=[]
+        Vacío=[]
+        print('Protocolos con ', a,'Intrusos')
+        print('')
+        for j in range(IntPro):
+            LongitudLlave = k+1
+            
+            CanalCuántico = [] #Tales como fibra óptica, donde se envían los estados.
+            CanalClásico = [] #Canal donde se comparten las bases usadas, como por ejemplo, un chat o red social.
+
+            def Codificador(NúmeroBits):
+
+                #Inicialmente, se buscará almacenar los estados que Alice codificará:
+                CadenaAlice = ""
+                #Seguido a tener los estados, se buscarán las bases (Horizontales o Verticales) con las que Alice hará las medidas de sus estados:
+                BasesAlice = ""
+
+                # Para el número de bits se tendrá: 
+                for i in range(NúmeroBits):
+                    # En este paso del protocolo, se generarán números aleatorios por medio de la función getrandbits, donde dichos números serán 0 o 1. 
+                    # Al usar el argumento "1" en la función, se está generando un solo bit aleatorio.
+                    CadenaAlice += str(getrandbits(1))
+                    # Si se obtiene "0", se esta encriptando en la base (0,1), es decir, la base Vertical; y si se obtiene "1", se está codificando en la base (+,-), es decir, la base Horizontal.
+                    BasesAlice += str(getrandbits(1))
+               # En este punto, se retorna la cadena de bits y las bases que se usan para encriptar.
+                return CadenaAlice, BasesAlice
+            CadenaAlice, BasesAlice = Codificador(LongitudLlave)
+
+            #Definimos la función aleatoria para la base de Bob:
+            def BasesUsadasBob(NúmeroBits):
+                # Ahora se buscarán las bases usadas por Bob para realizar las medidas de los estados que llegaron a él:
+                BasesBob = ""
+
+                for i in range(NúmeroBits):
+                    # Ahora, usando la función getranbits, se tomarán las bases de forma aleatoria para Bob.
+                    BasesBob += (str(getrandbits(1)))
+
+                # Y nuevamente, se retorna a la lista de las bases usadas por Bob a la hora de medir los estados dados por Alice.
+                return BasesBob
+            BasesBob = BasesUsadasBob(LongitudLlave)
+
+            #Se realizan las primeras medidas por Alice para enviarlas a Bob:
+            
+            def Encriptador(CadenaAlice, BasesAlice):
+                QubitsCodificados = []
+                for i in range(len(CadenaAlice)):
+                    # Ahora, usando la librería Qiskit, se creará un circuito cuántico, el cual asignará la medida del estado dependiendo de la base seleccionada. 
+                    # También es importante tener en cuenta que el qbit está en el estado |0> por defecto.
+                    qc = q.QuantumCircuit(1,1)
+
+                    if BasesAlice[i] == "0":
+                        # 0 Significa que se está codificando en la base Vertical.
+                        if CadenaAlice[i] == "0":
+                            # Como se quiere codificar el estado |0> Pero el estado defecto es |0>, entonces no se realiza ninguna operación.
+                            pass
+
+                        elif CadenaAlice[i] == "1":
+                            # Ahora, como se busca codificar el estado |1>, es necesario aplicar la compuerta X, la cual genera el estado |1>
+                            qc.x(0)
+
+                    elif BasesAlice[i] == "1":
+                        # 1 Nos dice que estamos en la base Horizontal.
+                        if CadenaAlice[i] == "0":
+                            # Se aplicará la compuerta de Hadamard para obtener el estado |+>
+                            qc.h(0)
+                        elif CadenaAlice[i] == "1":
+                            # En este caso, es necesario aplicar la compuerta XOR y la compuerta Hadamard para obtener así el estado |->
+                            qc.x(0)
+                            qc.h(0)
+
+                    # Ahora se añade este circuito cuántico a los Qubits Codificados:
+                    QubitsCodificados.append(qc)
+                    #De esta forma, el guardado de los qbits tiene la orientación inicial.
+
+                return QubitsCodificados
+            # Ahora Alice puede crear los qbits codificados con las bases elegidas y los valores obtenidos.
+            QubitsCodificados = Encriptador(CadenaAlice, BasesAlice)
+
+            # Alice envía sus qbits codificados a Bob a través del canal cuántico.
+            CanalCuántico = QubitsCodificados
+
+
+
+            for i in range(a):
+                #Ahora, agregando al intruso:
+                QubitsCodificadosH=QubitsCodificados
+                def SeleccionarBasesEve(NúmeroBits):
+                    # Se crea la lista de las bases de Eve
+                    BasesEve = ""
+
+                    for i in range(NúmeroBits):
+                        # Se generan las bases con la función getrandbits nuevamente.
+                        BasesEve += (str(getrandbits(1)))
+
+                    # Y finalmente, se retorna a la lista de las bases para iniciar la medida.
+                    return BasesEve
+                BasesEve = SeleccionarBasesEve(LongitudLlave)
+
+                # Aqui se pueden observar las bases seleccionadas por Eve
+
+                # Se define de igual manera la función de medida para el intruso
+                def MedidaEve(BasesEve, QubitsCodificadosH, backend):
+
+                    CadenaEve = ''
+
+                    for i in range(len(QubitsCodificadosH)):
+                        qc1 = QubitsCodificadosH[i] 
+
+                        if BasesEve[i] == "0":
+                            qc1.measure(0,0)
+
+                        elif BasesEve[i] == "1":
+                            qc1.h(0)
+                            qc1.measure(0,0)
+
+
+                        Circuito = q.execute(qc1, backend=backend, shots = 1) 
+                        Resultados = Circuito.result()
+                        Cuentas = Resultados.get_counts()
+                        BitMedido = max(Cuentas, key=Cuentas.get)
+
+
+                        CadenaEve += BitMedido
+
+                    return CadenaEve
+
+                SimBackend = q.Aer.get_backend('qasm_simulator')
+
+                CadenaEve = MedidaEve(BasesEve, QubitsCodificadosH, SimBackend)
+
+                #Se realiza una nueva codificación debido a el efecto de la medida de Eve
+                def Encriptador1(CadenaEve, BasesEve):
+                    QubitsCodificados1 = []
+                    for i in range(len(CadenaEve)):
+                        # Ahora, usando la librería Qiskit, se creará un circuito cuántico, el cual asignará la medida del estado dependiendo de la base seleccionada. 
+                        # También es importante tener en cuenta que el qbit está en el estado |0> por defecto.
+                        qc = q.QuantumCircuit(1,1)
+
+                        if BasesEve[i] == "0":
+                            # 0 Significa que se está codificando en la base Vertical.
+                            if CadenaEve[i] == "0":
+                                # Como se quiere codificar el estado |0> Pero el estado defecto es |0>, entonces no se realiza ninguna operación.
+                                pass
+
+                            elif CadenaEve[i] == "1":
+                                # Ahora, como se busca codificar el estado |1>, es necesario aplicar la compuerta X, la cual genera el estado |1>
+                                qc.x(0)
+
+                        elif BasesEve[i] == "1":
+                            # 1 Nos dice que estamos en la base Horizontal.
+                            if CadenaEve[i] == "0":
+                                # Se aplicará la compuerta de Hadamard para obtener el estado |+>
+                                qc.h(0)
+                            elif CadenaEve[i] == "1":
+                                # En este caso, es necesario aplicar la compuerta XOR y la compuerta Hadamard para obtener así el estado |->
+                                qc.x(0)
+                                qc.h(0)
+
+                        # Ahora se añade este circuito cuántico a los Qubits Codificados:
+                        QubitsCodificados1.append(qc)
+                        #De esta forma, el guardado de los qbits tiene la orientación inicial.
+
+                    return QubitsCodificados1
+                QubitsCodificados1 = Encriptador1(CadenaEve, BasesEve)
+                #Y ahora, Eve reenvía la información codificada por el canal cuántico
+                QubitsCodificadosH=QubitsCodificados1
+
+            CanalCuántico=QubitsCodificados1
+
+
+
+
+
+
+            def MedidasBob(BasesBob, QubitsCodificados1, backend):
+                # Por medio de esta función, Bob realizará las medidas de los qubits enviados por Alice
+                # Usando los qubits codificados, Bob tiene que elegir aleatoriamente las bases usadas para cada estado enviado
+                # La función Backend hace parte del IBMQ
+
+                # Inialmente, se crea el vector que almacenará las medidas de Bob.
+                CadenaBob = ''
+
+                for i in range(len(QubitsCodificados1)):
+                    qc = QubitsCodificados1[i] 
+                    #Primero, se importa la lista generada por los datos arrojados por el circuito
+
+                    if BasesBob[i] == "0":
+                        # Nuevamente, si se tiene '0', se está midiendo en la base Vertical.
+                        qc.measure(0,0)
+
+                    elif BasesBob[i] == "1":
+                        # 1 Nos informa que se está midiendo en la base Horizontal
+                        qc.h(0)
+                        qc.measure(0,0)
+
+                    # Ya con las medidas añadidas al circuito cuántico, solo resta observar el resultado arrojado por él.
+                    Circuito = q.execute(qc, backend=backend, shots = 1) 
+                    # Se puede aumentar la variable shots si se cuenta con el Hardware.
+                    Resultados = Circuito.result()
+                    Cuentas = Resultados.get_counts()
+                    BitMedido = max(Cuentas, key=Cuentas.get)
+
+                    # Y finalmente, se agrega la medida a la cadena de datos medidos por Bob
+                    CadenaBob += BitMedido 
+
+                return CadenaBob
+            SimBackend = q.Aer.get_backend('qasm_simulator')
+
+            CadenaBob = MedidasBob(BasesBob, QubitsCodificados1, SimBackend)
+
+
+                # Ahora, Alice envía la lista de Bases usada a Bob par medio del canal clásico para que 
+                # se revise en qué puntos coincidieron.
+            CanalClásico = BasesAlice
+            def ComparandoBases(BasesAlice, BasesBob):
+                Índices = []
+
+                for i in range(len(BasesAlice)):
+                    if BasesAlice[i] == BasesBob[i]:
+                        Índices.append(i)
+                return Índices
+            BasesCoinciden = ComparandoBases(CanalClásico, BasesBob)
+            # Ahora Bob envía la lista de bases donde se coincidió a Alice también
+            # Por medio del canal clásico.
+            CanalClásico = BasesCoinciden
+
+            #Ahora se observa el efecto del intruso en las nuevas llaves producidas
+
+            
+            print('Cantidad de bases que coinciden: ',len(CanalClásico))
+            Veni=[]
+                
+            BC=len(CanalClásico)
+            for i in range(b):
+                a23=i+1
+                BitsCanalClásico = CadenaAlice[:a23]
+
+
+                def TestDeIntruso(bitstring, Índices):
+                    LlavePrueba = ''
+                    for idx in Índices:
+                        if idx < k+1:
+                            # Para las bases que coinciden, se agrega el valor de la cadena dada.
+                            LlavePrueba = LlavePrueba + bitstring[idx]
+                        else:
+                            pass
+                    return LlavePrueba
+
+                LlaveAlice1 = TestDeIntruso(CadenaAlice, CanalClásico)
+                LlaveBob1 = TestDeIntruso(CadenaBob, BasesCoinciden)
+                LAl=LlaveAlice1[:a23]
+                LBo=LlaveBob1[:a23]
+                
+            #Es de vital importancia tener en cuenta que
+            #En algunos casos, no existirán bases coincidentes, por lo que
+            #Es necesario eliminar dichos casos
+                if LAl == LBo:
+                    if CanalClásico==[]:
+                        jota=0
+                        Veni.append(0)
+                    else:
+                        jota=1
+                        
+                        Veni.append(jota)
+                else:
+                    Veni.append(0)
+            if LlaveAlice1==LlaveBob1:
+                if CanalClásico==[]:
+                    juas=0
+                    Vacío.append(juas)
+                else:
+                    juas=1
+                    Vec.append(juas)
+            
+           
+            Matriz.append(Veni)
+        Núm=len(Vec)
+        if (IntPro-len(Vacío)) != 0:
+            Probabilidad = Núm/(IntPro-len(Vacío))
+        else:   
+            Probabilidad = 1
+        
+
+        print('La probabilidad de no ser detectado es', Probabilidad*100,'%')
+
+
+        Prob1.append(Probabilidad)
+print(Matriz)      
+for i in range(IntPro*(b-HOT)-1):
+    s1=Matriz[i]
+    s2=Matriz[i+1]
+    s = np.add(s1, s2)
+    Matriz[i+1] = s
+VecA= s /(IntPro*(b-HOT))
+print(VecA)
+
+Hu=b
+fig = plt.figure(1)
+ax = fig.add_axes([0.2,0.2,4.8,1.5])
+
+ax.set_xlabel('Cantidad de datos medidos a tener en cuenta')
+ax.set_ylabel('Probabilidad de no ser detectado')
+ax.set_xlim(0,Hu)
+ax.set_xticks(range(0,Hu))
+
+x = range(Hu)
+plt.plot(x,VecA,ds='steps-mid')
+plt.grid(True, which="both")
+plt.show()
+        
+    
+Hi=(b-HOT)*IntIntru
+fig = plt.figure(1)
+ax = fig.add_axes([0.2,0.2,3.4,1.5])
+
+ax.set_xlabel('Cantidad de estados y/o intrusos en el protocolo')
+ax.set_ylabel('Probabilidad de no ser detectados')
+ax.set_xlim(0,Hi)
+ax.set_xticks(range(0,Hi))
+
+x = range(Hi)
+plt.plot(x,Prob1,ds='steps-mid')
+plt.grid(True, which="both")
+plt.show()
